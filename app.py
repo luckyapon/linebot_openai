@@ -14,6 +14,7 @@ import datetime
 import openai
 import time
 import traceback
+from openai import OpenAI
 #======python的函數庫==========
 
 app = Flask(__name__)
@@ -33,7 +34,17 @@ def GPT_response(text):
     # 重組回應
     answer = response['choices'][0]['text'].replace('。','')
     return answer
-
+    
+def generate_image(prompt):
+    # 使用 OpenAI 生成圖片
+    response = openai.Image.create(
+        model="dall-e-3",
+        prompt=prompt,
+        n=1,
+        size="1024x1024"
+    )
+    img_url = response.data[0].url  # 假設回應中包含圖片 URL
+    return img_url
 
 # 監聽所有來自 /callback 的 Post Request
 @app.route("/callback", methods=['POST'])
@@ -56,9 +67,17 @@ def callback():
 def handle_message(event):
     msg = event.message.text
     try:
-        GPT_answer = GPT_response(msg)
-        print(GPT_answer)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
+        if msg.startswith("生成圖片"):  # 假設用戶消息以 "生成圖片" 開頭
+            prompt = msg[len("生成圖片"):].strip()
+            img_url = generate_image(prompt)
+            line_bot_api.reply_message(
+                event.reply_token,
+                ImageSendMessage(original_content_url=img_url, preview_image_url=img_url)
+            )
+        else:
+            GPT_answer = GPT_response(msg)
+            print(GPT_answer)
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
     except:
         print(traceback.format_exc())
         line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的OPENAI API key額度可能已經超過，請於後台Log內確認錯誤訊息'))
